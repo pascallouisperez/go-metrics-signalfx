@@ -3,10 +3,11 @@ package signalfx
 import (
 	"context"
 	"fmt"
+	"time"
+
 	metrics "github.com/rcrowley/go-metrics"
 	"github.com/signalfx/golib/datapoint"
 	"github.com/signalfx/golib/sfxclient"
-	"time"
 )
 
 // Options controls various behavior of the SignalFX bridge.
