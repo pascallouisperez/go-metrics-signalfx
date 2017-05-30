@@ -14,4 +14,12 @@ Simply use as follows
 
 	...
 
-	go signalfx.PublishToSignalFx(metrics.DefaultRegistry, 15 * time.Second, nil, "<auth_token>")
+	go signalfx.PublishToSignalFx(metrics.DefaultRegistry, "<auth_token>")
+
+And you can also pass in a few options
+
+	go signalfx.PublishToSignalFx(metrics.DefaultRegistry, "<auth_token>", signalfx.Options{
+		Logger: ...,
+		Duration: ...,
+		Verbose: true,
+	})
