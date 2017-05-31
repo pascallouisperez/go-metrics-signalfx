@@ -17,9 +17,9 @@ func (_ logger) Printf(format string, v ...interface{}) {
 
 func main() {
 	go signalfx.PublishToSignalFx(metrics.DefaultRegistry, "<auth_token>", signalfx.Options{
-		Duration: 5 * time.Second,
-		Logger:   logger{},
-		Verbose:  true,
+		DiffFrequency: 5 * time.Second,
+		Logger:        logger{},
+		Verbose:       true,
 	})
 
 	gauge := metrics.NewGauge()

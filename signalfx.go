@@ -12,9 +12,17 @@ import (
 
 // Options controls various behavior of the SignalFX bridge.
 type Options struct {
-	// Duration controls the frequency at which to flush metrics to SignalFX. By
-	// defaul, this is set to every 15 seconds.
-	Duration time.Duration
+	// DiffFrequency controls the frequency at which to flush diff of metrics to
+	// SignalFX. If counters or gauges do not change from one period to another,
+	// it will not be pushed to reduce the DPM rate.
+	// By defaul, this is set to every 15 seconds.
+	DiffFrequency time.Duration
+
+	// FullFrequency controls the frequency at which a full flush of metrics to
+	// SignalFX occurs. This frequency is superseded by DiffFrequency, such that
+	// no flushing will occur faster than DiffFrequency.
+	// By defaul, this is set to every minute.
+	FullFrequency time.Duration
 
 	// Logger specifies a logger to use. It is used in verbose mode, and to
 	// report flushing errors communicating to SignalFX.
@@ -27,21 +35,36 @@ type Options struct {
 
 // PublishToSignalFx publishes periodically all the metrics of the specified
 // registry to SignalFX (https://signalfx.com/). This is designed to be called
-// as a goroutine. Providing a logger is optional and only used to log
-// publishing errors.
+// as a goroutine:
+//
+// 	go signalfx.PublishToSignalFx(metrics.DefaultRegistry, "<auth_token>")
 func PublishToSignalFx(r metrics.Registry, authToken string, options ...Options) {
 	var opt Options
-	if l := len(options); l > 1 {
+	if size := len(options); size > 1 {
 		panic("PublishToSignalFx: more than one options provided.")
-	} else if l == 1 {
+	} else if size == 1 {
 		opt = options[0]
-		if opt.Duration == 0 {
-			opt.Duration = 15 * time.Second
-		}
+	}
+	if opt.DiffFrequency == 0 {
+		opt.DiffFrequency = 15 * time.Second
+	}
+	if opt.FullFrequency == 0 {
+		opt.FullFrequency = 1 * time.Minute
 	}
 
 	publisher := newPublisher(authToken, opt)
-	for _ = range time.Tick(opt.Duration) {
+	clearerTick := time.Tick(opt.FullFrequency)
+	for _ = range time.Tick(opt.DiffFrequency) {
+		select {
+		case <-clearerTick:
+			if opt.Verbose && opt.Logger != nil {
+				opt.Logger.Printf("clearing caches")
+			}
+			publisher.resetCaches()
+		default:
+			// no-op
+		}
+
 		if err := publisher.single(r); err != nil {
 			publisher.client = nil
 			if opt.Logger != nil {
@@ -67,10 +90,14 @@ type publisher struct {
 
 func newPublisher(authToken string, opt Options) *publisher {
 	p := publisher{authToken: authToken, opt: opt}
+	p.resetCaches()
+	return &p
+}
+
+func (p *publisher) resetCaches() {
 	p.last.counters = make(map[string]int64, 0)
 	p.last.gauges = make(map[string]int64, 0)
 	p.last.gauges_f = make(map[string]float64, 0)
-	return &p
 }
 
 func (p *publisher) single(r metrics.Registry) error {
