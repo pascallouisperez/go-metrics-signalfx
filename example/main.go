@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"time"
 
-	signalfx "github.com/loyyal/go-metrics-signalfx"
+	signalfx "github.com/pascallouisperez/go-metrics-signalfx"
 	metrics "github.com/rcrowley/go-metrics"
 )
 
